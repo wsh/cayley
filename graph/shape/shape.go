@@ -1088,6 +1088,14 @@ type IntersectOptional struct {
 	Optional  []Shape
 }
 
+func (s *IntersectOptional) Add(arr ...Shape) {
+	s.Intersect = append(s.Intersect, arr...)
+}
+
+func (s *IntersectOptional) AddOptional(arr ...Shape) {
+	s.Optional = append(s.Optional, arr...)
+}
+
 func (s IntersectOptional) BuildIterator(qs graph.QuadStore) graph.Iterator {
 	it := s.Intersect.BuildIterator(qs)
 	if len(s.Optional) == 0 {

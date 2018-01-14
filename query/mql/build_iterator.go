@@ -151,9 +151,9 @@ func (q *Query) buildShapeMap(query map[string]interface{}, path Path) (shape.Sh
 			}
 		}
 		if optional {
-			it.Optional = append(it.Optional, subit)
+			it.AddOptional(subit)
 		} else {
-			it.Intersect = append(it.Intersect, subit)
+			it.Add(subit)
 		}
 	}
 	if err != nil {
