@@ -111,7 +111,6 @@ func (it *Or) Next(ctx context.Context) bool {
 	if it.currentIterator >= len(it.internalIterators) {
 		return false
 	}
-	graph.NextLogIn(it)
 	var first bool
 	for {
 		if it.currentIterator == -1 {
@@ -122,12 +121,12 @@ func (it *Or) Next(ctx context.Context) bool {
 
 		if curIt.Next(ctx) {
 			it.result = curIt.Result()
-			return graph.NextLogOut(it, true)
+			return true
 		}
 
 		it.err = curIt.Err()
 		if it.err != nil {
-			return graph.NextLogOut(it, false)
+			return false
 		}
 
 		if it.isShortCircuiting && !first {
@@ -139,7 +138,7 @@ func (it *Or) Next(ctx context.Context) bool {
 		}
 	}
 
-	return graph.NextLogOut(it, false)
+	return false
 }
 
 func (it *Or) Err() error {
@@ -170,16 +169,15 @@ func (it *Or) subItsContain(ctx context.Context, val graph.Value) (bool, error) 
 
 // Check a value against the entire graph.iterator, in order.
 func (it *Or) Contains(ctx context.Context, val graph.Value) bool {
-	graph.ContainsLogIn(it, val)
 	anyGood, err := it.subItsContain(ctx, val)
 	if err != nil {
 		it.err = err
 		return false
 	} else if !anyGood {
-		return graph.ContainsLogOut(it, val, false)
+		return false
 	}
 	it.result = val
-	return graph.ContainsLogOut(it, val, true)
+	return true
 }
 
 // Returns the approximate size of the Or graph.iterator. Because we're dealing

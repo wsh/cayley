@@ -184,7 +184,6 @@ func (it *Materialize) Stats() graph.IteratorStats {
 }
 
 func (it *Materialize) Next(ctx context.Context) bool {
-	graph.NextLogIn(it)
 	it.runstats.Next += 1
 	if !it.hasRun {
 		it.materializeSet(ctx)
@@ -201,9 +200,9 @@ func (it *Materialize) Next(ctx context.Context) bool {
 	it.index++
 	it.subindex = 0
 	if it.index >= len(it.values) {
-		return graph.NextLogOut(it, false)
+		return false
 	}
-	return graph.NextLogOut(it, true)
+	return true
 }
 
 func (it *Materialize) Err() error {
@@ -211,7 +210,6 @@ func (it *Materialize) Err() error {
 }
 
 func (it *Materialize) Contains(ctx context.Context, v graph.Value) bool {
-	graph.ContainsLogIn(it, v)
 	it.runstats.Contains += 1
 	if !it.hasRun {
 		it.materializeSet(ctx)
@@ -226,9 +224,9 @@ func (it *Materialize) Contains(ctx context.Context, v graph.Value) bool {
 	if i, ok := it.containsMap[key]; ok {
 		it.index = i
 		it.subindex = 0
-		return graph.ContainsLogOut(it, v, true)
+		return true
 	}
-	return graph.ContainsLogOut(it, v, false)
+	return false
 }
 
 func (it *Materialize) NextPath(ctx context.Context) bool {

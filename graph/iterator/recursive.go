@@ -129,13 +129,13 @@ func (it *Recursive) Next(ctx context.Context) bool {
 	}
 
 	if it.maxDepth > 0 && it.depth >= it.maxDepth {
-		return graph.NextLogOut(it, false)
+		return false
 	}
 	for {
 		ok := it.nextIt.Next(ctx)
 		if !ok {
 			if len(it.depthCache) == 0 {
-				return graph.NextLogOut(it, false)
+				return false
 			}
 			it.depth++
 			it.baseIt = NewFixed()
@@ -163,7 +163,7 @@ func (it *Recursive) Next(ctx context.Context) bool {
 		it.depthCache = append(it.depthCache, val)
 		break
 	}
-	return graph.NextLogOut(it, true)
+	return true
 }
 
 func (it *Recursive) Err() error {
@@ -190,21 +190,20 @@ func (it *Recursive) getBaseValue(val graph.Value) graph.Value {
 }
 
 func (it *Recursive) Contains(ctx context.Context, val graph.Value) bool {
-	graph.ContainsLogIn(it, val)
 	it.pathIndex = 0
 	key := graph.ToKey(val)
 	if at, ok := it.seen[key]; ok {
 		it.containsValue = it.getBaseValue(val)
 		it.result.depth = at.depth
 		it.result.val = val
-		return graph.ContainsLogOut(it, val, true)
+		return true
 	}
 	for it.Next(ctx) {
 		if graph.ToKey(it.Result()) == key {
-			return graph.ContainsLogOut(it, val, true)
+			return true
 		}
 	}
-	return graph.ContainsLogOut(it, val, false)
+	return false
 }
 
 func (it *Recursive) NextPath(ctx context.Context) bool {
