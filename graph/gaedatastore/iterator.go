@@ -29,7 +29,6 @@ import (
 type Iterator struct {
 	uid    uint64
 	size   int64
-	tags   graph.Tagger
 	dir    quad.Direction
 	qs     *QuadStore
 	name   string
@@ -139,9 +138,6 @@ func (it *Iterator) Close() error {
 	return nil
 }
 
-func (it *Iterator) Tagger() *graph.Tagger {
-	return &it.tags
-}
 func (it *Iterator) Contains(ctx context.Context, v graph.Value) bool {
 	graph.ContainsLogIn(it, v)
 	if it.isAll {
@@ -177,22 +173,16 @@ func (it *Iterator) Contains(ctx context.Context, v graph.Value) bool {
 	return graph.ContainsLogOut(it, v, false)
 }
 
-func (it *Iterator) TagResults(dst map[string]graph.Value) {
-	it.tags.TagResult(dst, it.Result())
-}
+func (it *Iterator) TagResults(dst map[string]graph.Value) {}
 
 func (it *Iterator) Clone() graph.Iterator {
 	if it.isAll {
-		m := NewAllIterator(it.qs, it.kind)
-		m.tags.CopyFrom(it)
-		return m
+		return NewAllIterator(it.qs, it.kind)
 	}
 
 	// Create a token, the tokens kind is ignored in creation of the iterator
 	t := &Token{nodeKind, it.hash}
-	m := NewIterator(it.qs, it.kind, it.dir, t)
-	m.tags.CopyFrom(it)
-	return m
+	return NewIterator(it.qs, it.kind, it.dir, t)
 }
 
 func (it *Iterator) NextPath(ctx context.Context) bool {

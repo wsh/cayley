@@ -11,7 +11,6 @@ import (
 // Recursive iterator takes a base iterator and a morphism to be applied recursively, for each result.
 type Recursive struct {
 	uid      uint64
-	tags     graph.Tagger
 	subIt    graph.Iterator
 	result   seenAt
 	runstats graph.IteratorStats
@@ -26,7 +25,7 @@ type Recursive struct {
 	pathMap       map[interface{}][]map[string]graph.Value
 	pathIndex     int
 	containsValue graph.Value
-	depthTags     graph.Tagger
+	depthTags     []string
 	depthCache    []graph.Value
 	baseIt        graph.FixedIterator
 }
@@ -78,17 +77,14 @@ func (it *Recursive) Reset() {
 	it.depth = 0
 }
 
-func (it *Recursive) Tagger() *graph.Tagger {
-	return &it.tags
-}
-
 func (it *Recursive) AddDepthTag(s string) {
-	it.depthTags.Add(s)
+	it.depthTags = append(it.depthTags, s)
 }
 
 func (it *Recursive) TagResults(dst map[string]graph.Value) {
-	it.tags.TagResult(dst, it.Result())
-	it.depthTags.TagResult(dst, graph.PreFetched(quad.Int(it.result.depth)))
+	for _, tag := range it.depthTags {
+		dst[tag] = graph.PreFetched(quad.Int(it.result.depth))
+	}
 
 	if it.containsValue != nil {
 		paths := it.pathMap[graph.ToKey(it.containsValue)]
@@ -106,8 +102,7 @@ func (it *Recursive) TagResults(dst map[string]graph.Value) {
 
 func (it *Recursive) Clone() graph.Iterator {
 	n := NewRecursive(it.qs, it.subIt.Clone(), it.morphism, it.maxDepth)
-	n.tags.CopyFrom(it)
-	n.depthTags.CopyFromTagger(&it.depthTags)
+	n.depthTags = append([]string{}, n.depthTags...)
 	return n
 }
 
@@ -147,9 +142,8 @@ func (it *Recursive) Next(ctx context.Context) bool {
 			for _, x := range it.depthCache {
 				it.baseIt.Add(x)
 			}
-			it.baseIt.Tagger().Add("__base_recursive")
 			it.depthCache = nil
-			it.nextIt = it.morphism(it.qs, it.baseIt)
+			it.nextIt = it.morphism(it.qs, Tag(it.baseIt, "__base_recursive"))
 			continue
 		}
 		val := it.nextIt.Result()
