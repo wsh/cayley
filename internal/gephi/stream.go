@@ -232,7 +232,7 @@ func (s *GraphStreamHandler) serveRawQuads(ctx context.Context, gs *GraphStream,
 		linksTo(quad.Predicate, pred)
 		linksTo(quad.Object, obj)
 		linksTo(quad.Label, label)
-		it = iterator.NewAnd(s.QS, subIt...)
+		it = iterator.NewAnd(subIt...)
 	}
 	defer it.Close()
 

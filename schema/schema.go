@@ -157,7 +157,7 @@ var Optimize = true
 func iteratorFromPath(qs graph.QuadStore, root graph.Iterator, p *path.Path) (graph.Iterator, error) {
 	it := p.BuildIteratorOn(qs)
 	if root != nil {
-		it = iterator.NewAnd(qs, root, it)
+		it = iterator.NewAnd(root, it)
 	}
 	if Optimize {
 		it, _ = it.Optimize()
@@ -783,7 +783,7 @@ func loadIteratorToDepth(ctx context.Context, qs graph.QuadStore, dst reflect.Va
 	if list != nil && list.Type() != graph.All {
 		// distinguish between missing object and type constraints
 		list.Reset()
-		and := iterator.NewAnd(qs, list, qs.NodesAllIterator())
+		and := iterator.NewAnd(list, qs.NodesAllIterator())
 		defer and.Close()
 		if and.Next(ctx) {
 			return errRequiredFieldIsMissing

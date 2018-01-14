@@ -256,13 +256,17 @@ var optimizeCases = []struct {
 	},
 	{ // remove optional empty set from intersect
 		name: "remove optional empty set",
-		from: Intersect{
-			AllNodes{},
-			Save{From: AllNodes{}, Tags: []string{"all"}},
-			Fixed{intVal(2)},
-			Optional{Save{
-				From: emptySet(),
-				Tags: []string{"name"}},
+		from: IntersectOptional{
+			Intersect: Intersect{
+				AllNodes{},
+				Save{From: AllNodes{}, Tags: []string{"all"}},
+				Fixed{intVal(2)},
+			},
+			Optional: []Shape{
+				Save{
+					From: emptySet(),
+					Tags: []string{"name"},
+				},
 			},
 		},
 		opt: true,

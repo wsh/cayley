@@ -464,7 +464,7 @@ func (s Quads) BuildIterator(qs graph.QuadStore) graph.Iterator {
 	if len(its) == 1 {
 		return its[0]
 	}
-	return iterator.NewAnd(qs, its...)
+	return iterator.NewAnd(its...)
 }
 func (s Quads) Optimize(r Optimizer) (Shape, bool) {
 	var opt bool
@@ -898,7 +898,7 @@ func (s Intersect) BuildIterator(qs graph.QuadStore) graph.Iterator {
 	if len(sub) == 1 {
 		return sub[0]
 	}
-	return iterator.NewAnd(qs, sub...)
+	return iterator.NewAnd(sub...)
 }
 func (s Intersect) Optimize(r Optimizer) (sout Shape, opt bool) {
 	if len(s) == 0 {
@@ -961,12 +961,6 @@ func (s Intersect) Optimize(r Optimizer) (sout Shape, opt bool) {
 			remove(&i, true)
 			// prevent resetting of onlyAll
 			continue
-		case Optional:
-			if IsNull(c.From) {
-				remove(&i, true)
-				// prevent resetting of onlyAll
-				continue
-			}
 		case Quads: // merge all quad filters
 			remove(&i, false)
 			if quads == nil {
@@ -1085,6 +1079,101 @@ func (s Intersect) Optimize(r Optimizer) (sout Shape, opt bool) {
 		return s[0], true
 	}
 	// TODO: optimize order
+	return s, opt
+}
+
+// IntersectOptional is the same as Intersect, but includes a list of optional query paths that will only affect tagging.
+type IntersectOptional struct {
+	Intersect Intersect
+	Optional  []Shape
+}
+
+func (s IntersectOptional) BuildIterator(qs graph.QuadStore) graph.Iterator {
+	it := s.Intersect.BuildIterator(qs)
+	if len(s.Optional) == 0 {
+		return it
+	}
+	and, ok := it.(*iterator.And)
+	if !ok {
+		// no, sorry, can only add optional to And
+		and = iterator.NewAnd(it)
+	}
+	for _, sub := range s.Optional {
+		and.AddOptionalIterator(sub.BuildIterator(qs))
+	}
+	return and
+}
+func (s IntersectOptional) Optimize(r Optimizer) (Shape, bool) {
+	// function to lazily reallocate a copy of Optional slice
+	alloc := false
+	opt := false
+	realloc := func() {
+		if !alloc {
+			alloc = true
+			s.Optional = append([]Shape{}, s.Optional...)
+		}
+		opt = true
+	}
+	remove := func(i int) {
+		opt = true
+		if n := len(s.Optional); i == n-1 {
+			if !alloc {
+				s.Optional = s.Optional[:i:i]
+			} else {
+				s.Optional = s.Optional[:i]
+			}
+			return
+		}
+		if !alloc {
+			alloc = true
+			old := s.Optional
+			s.Optional = make([]Shape, 0, len(s.Optional)-1)
+			s.Optional = append(s.Optional, old[:i]...)
+			s.Optional = append(s.Optional, old[i+1:]...)
+		} else {
+			s.Optional = append(s.Optional[:i], s.Optional[i+1:]...)
+		}
+	}
+	for i := 0; i < len(s.Optional); i++ {
+		sub := s.Optional[i]
+		// remove nulls from Optional
+		if IsNull(sub) {
+			remove(i)
+			i--
+			continue
+		}
+		// and optimize sub-queries
+		if ns, opt2 := sub.Optimize(r); opt2 {
+			if IsNull(ns) {
+				remove(i)
+				i--
+			} else {
+				realloc()
+				s.Optional[i] = ns
+			}
+		}
+	}
+	var (
+		ns   Shape
+		opti bool
+	)
+	if len(s.Intersect) == 1 {
+		// since we will automatically add Intersect{ns} in case of one node, we should not consider it
+		// an optimization, or we can hit infinite loop
+		ns, opti = s.Intersect[0].Optimize(r)
+	} else {
+		ns, opti = s.Intersect.Optimize(r)
+	}
+	opt = opt || opti
+	if len(s.Optional) == 0 {
+		return ns, true
+	}
+	and, ok := ns.(Intersect)
+	if !ok {
+		// no, sorry, can only add optional to Intersect
+		and = Intersect{ns}
+	}
+	s.Intersect = and
 	return s, opt
 }
 
@@ -1264,34 +1353,6 @@ func (s Save) Optimize(r Optimizer) (Shape, bool) {
 	s.From, opt = s.From.Optimize(r)
 	if len(s.Tags) == 0 {
 		return s.From, true
-	}
-	if r != nil {
-		ns, nopt := r.OptimizeShape(s)
-		return ns, opt || nopt
-	}
-	return s, opt
-}
-
-// Optional makes a query execution optional. The query can only produce tagged results,
-// since it's value is not used to compute intersection.
-type Optional struct {
-	From Shape
-}
-
-func (s Optional) BuildIterator(qs graph.QuadStore) graph.Iterator {
-	if IsNull(s.From) {
-		return iterator.NewOptional(iterator.NewNull())
-	}
-	return iterator.NewOptional(s.From.BuildIterator(qs))
-}
-func (s Optional) Optimize(r Optimizer) (Shape, bool) {
-	if IsNull(s.From) {
-		return s, false
-	}
-	var opt bool
-	s.From, opt = s.From.Optimize(r)
-	if IsNull(s.From) {
-		return s, opt
 	}
 	if r != nil {
 		ns, nopt := r.OptimizeShape(s)

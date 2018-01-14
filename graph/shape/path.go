@@ -20,6 +20,24 @@ func IntersectShapes(s1, s2 Shape) Shape {
 	}
 	return Intersect{s1, s2}
 }
+func IntersectShapesOpt(s, opt Shape) Shape {
+	switch s := s.(type) {
+	case Intersect:
+		return IntersectOptional{
+			Intersect: s,
+			Optional:  []Shape{opt},
+		}
+	case IntersectOptional:
+		return IntersectOptional{
+			Intersect: s.Intersect,
+			Optional:  append(s.Optional, opt),
+		}
+	}
+	return IntersectOptional{
+		Intersect: Intersect{s},
+		Optional:  []Shape{opt},
+	}
+}
 
 func UnionShapes(s1, s2 Shape) Union {
 	if s1, ok := s1.(Union); ok {
@@ -148,7 +166,7 @@ func SaveViaLabels(from, via, labels Shape, tag string, rev, opt bool) Shape {
 		Dir:   start,
 	}
 	if opt {
-		save = Optional{save}
+		return IntersectShapesOpt(from, save)
 	}
 	return IntersectShapes(from, save)
 }
